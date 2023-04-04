@@ -253,7 +253,8 @@ public class SecuritySuite {
          */
         public SecuritySuite build() {
             if (this.securityPolicy == null) {
-                if (this.authenticationMechanism.isHlsMechanism()) {
+                if (this.authenticationMechanism.isHlsMechanism() ||
+                    (this.authenticationMechanism == AuthenticationMechanism.LOW && this.authenticationKey != null)) { // Support DSMR2.2, LLS can use security policy authenticated as well
                     if (this.encryptionMechanism != EncryptionMechanism.NONE) {
                         this.securityPolicy = SecurityPolicy.AUTHENTICATED_AND_ENCRYPTED;
                     }
@@ -303,9 +304,10 @@ public class SecuritySuite {
                 throw new IllegalArgumentException("Select a cryptographical algorithm to encrypt messages.");
             }
             else if ((securityPolicy == SecurityPolicy.AUTHENTICATED
-                    || securityPolicy == SecurityPolicy.AUTHENTICATED_AND_ENCRYPTED)
-                    && !authenticationMechanism.isHlsMechanism()) {
-                throw new IllegalArgumentException("Select a HLS authentication, to authenticate messages.");
+                || securityPolicy == SecurityPolicy.AUTHENTICATED_AND_ENCRYPTED)
+                && !authenticationMechanism.isHlsMechanism()
+                && !(authenticationMechanism == AuthenticationMechanism.LOW && authenticationKey != null)) {  // Support DSMR2.2, LLS can use security policy authenticated as well
+                throw new IllegalArgumentException("Select an LLS or HLS authentication, to authenticate messages.");
             }
         }
 

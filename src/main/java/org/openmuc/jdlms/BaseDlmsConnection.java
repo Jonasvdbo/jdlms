@@ -236,6 +236,14 @@ abstract class BaseDlmsConnection implements BaseConnection {
         switch (authMechanism) {
         case LOW:
             setupAarqAuthentication(aarq, securitySuite.getPassword());
+
+            // Support DSMR2.2: client name is necessary for encryption and authentication
+            APTitle clientApTitleLls = new APTitle();
+            clientApTitleLls.setApTitleForm2(new APTitleForm2(settings.systemTitle()));
+            aarq.setCallingAPTitle(clientApTitleLls);
+            aarq.setSenderAcseRequirements(new ACSERequirements(new byte[] { (byte) (1 << 7) }, 1));
+            // Support DSMR2.2
+
             break;
         case NONE:
             // nothing to do
@@ -268,7 +276,8 @@ abstract class BaseDlmsConnection implements BaseConnection {
         RawMessageDataBuilder rawMessageBuilder = newRawMessageDataBuilder();
 
         try {
-            int length = encodeAPdu(aarqAPdu, rawMessageBuilder);
+            // Support DSMR2.2: when using LLS, call encodeAPDU with skipEncryption to true
+            int length = encodeAPdu(aarqAPdu, rawMessageBuilder, authMechanism == AuthenticationMechanism.LOW);
             this.sessionLayer.send(buffer, buffer.length - length, length, rawMessageBuilder);
         } catch (IOException e) {
             closeUnsafe();
@@ -329,7 +338,8 @@ abstract class BaseDlmsConnection implements BaseConnection {
         APdu aPdu = new APdu(null, pdu);
         RawMessageDataBuilder rawMessageBuilder = RawMessageData.builder().setMessageSource(MessageSource.CLIENT);
 
-        int length = encodeAPdu(aPdu, rawMessageBuilder);
+        // Support DSMR2.2: Parameter skipEncryption is only needed for InitiateRequest.
+        int length = encodeAPdu(aPdu, rawMessageBuilder, false);
 
         int offset = buffer.length - length;
         this.sessionLayer.send(buffer, offset, length, rawMessageBuilder);
@@ -409,10 +419,12 @@ abstract class BaseDlmsConnection implements BaseConnection {
         return RawMessageData.builder();
     }
 
-    private int encodeAPdu(final APdu aPdu, final RawMessageDataBuilder rawMessageBuilder) throws IOException {
+    // Support DSMR2.2: added param SkipEncryption to make it possible to skip encryption of the Initiate Request
+    private int encodeAPdu(final APdu aPdu, final RawMessageDataBuilder rawMessageBuilder, final boolean skipEncryption) throws IOException {
         final SecuritySuite securitySuite = settings.securitySuite();
 
-        if (securitySuite.getEncryptionMechanism() != EncryptionMechanism.NONE) {
+        // Support DSMR2.2: skip encryption of the Initiate Request
+        if (securitySuite.getEncryptionMechanism() != EncryptionMechanism.NONE && !skipEncryption) {
             return aPdu.encode(buffer, this.frameCounter++, settings.systemTitle(), securitySuite, rawMessageBuilder);
         }
         else {
@@ -431,7 +443,8 @@ abstract class BaseDlmsConnection implements BaseConnection {
 
         AAREApdu aare = responseAPdu.getAcseAPdu().getAare();
 
-        if (settings.securitySuite().getAuthenticationMechanism().isHlsMechanism()) {
+        // Support DSMR2.2: updated to check on securityPolicy instead of authenticationMechanism
+        if (settings.securitySuite().getSecurityPolicy().isAuthenticated()) {
             this.serverSystemTitle = aare.getRespondingAPTitle().getApTitleForm2().value;
         }
 
@@ -568,6 +581,14 @@ abstract class BaseDlmsConnection implements BaseConnection {
                     return;
                 }
             } catch (IOException e) {
+                // Support DSMR2.2: If decode fails, we still want to log the received bytes
+                RawMessageListener rawMessageListener = settings.rawMessageListener();
+                if (rawMessageListener != null) {
+                    RawMessageData rawMessageData = rawMessageBuilder.setMessage(data).setMessageSource(MessageSource.SERVER).build();
+                    rawMessageListener.messageCaptured(rawMessageData);
+                }
+                // Support DSMR2.2
+
                 errorOccurred(e);
                 return;
             }

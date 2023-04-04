@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.text.MessageFormat;
 
+import org.openmuc.jdlms.AuthenticationMechanism;
 import org.openmuc.jdlms.FatalJDlmsException;
 import org.openmuc.jdlms.JDlmsException.ExceptionId;
 import org.openmuc.jdlms.JDlmsException.Fault;
@@ -152,7 +153,8 @@ public class APdu {
                         ContextId contextId = ObjectIdentifier
                                 .applicationContextIdFrom(acseAPdu.getAarq().getApplicationContextName());
 
-                        if (!contextId.isCiphered()) {
+                        // Support DSMR2.2: for DSMR2.2 with LLS1, the AARQ is not encrypted
+                        if (!contextId.isCiphered() && securitySuite.getAuthenticationMechanism() != AuthenticationMechanism.LOW) {
                             throw new AssociatRequestException(AcseServiceUser.APPLICATION_CONTEXT_NAME_NOT_SUPPORTED);
                         }
 
@@ -172,7 +174,8 @@ public class APdu {
             byte[] plaintext = null;
 
             InputStream cosemPduIs = is;
-            if (encrypt) {
+            // Support DSMR2.2: for DSMR2.2 with LLS1, the AARQ (with tag 0x60) is not encrypted
+            if (encrypt && (tag != 0x60 || securitySuite.getAuthenticationMechanism() != AuthenticationMechanism.LOW)) {
 
                 is.read();
 
