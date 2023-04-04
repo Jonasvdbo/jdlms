@@ -1,0 +1,7 @@
+dependencies {
+  compile 'antlr:antlr:2.7.7'
+  compile 'javax.xml.bind:jaxb-api:2.3.1'
+  compile 'com.sun.xml.bind:jaxb-core:2.3.0.1'
+  compile 'com.sun.xml.bind:jaxb-impl:2.3.1'
+  testCompile project(':')
+}
