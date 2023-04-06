@@ -194,13 +194,14 @@ class InitiateMessageProcessor {
 
     }
 
-    // Support DSMR2.2: Added parameter addSystemTitle: When using LLS1 in combination with encryption, then
-    // the system title should be added to the AARE and the client title should be remembered.
+    // Support DSMR2.2: Added parameter addSystemTitle.
     private APdu processLowAuthentciationRequest(InitiateResponseBuilder responseBuilder, AARQApdu aarq,
         byte[] authenticationKey, boolean addSystemTitle) throws AssociatRequestException {
         byte[] clientAuthenticaionValue = aarq.getCallingAuthenticationValue().getCharstring().value;
 
         if (addSystemTitle) {
+            // Support DSMR2.2: When using LLS1 in combination with encryption, then the system
+            // title should be added to the AARE and the client title should be remembered.
             this.connectionData.setClientSystemTitle(aarq.getCallingAPTitle().getApTitleForm2().value);
             responseBuilder.setSystemTitle(systemTitle());
         }
