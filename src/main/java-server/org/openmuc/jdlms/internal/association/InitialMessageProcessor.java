@@ -162,8 +162,9 @@ class InitiateMessageProcessor {
         this.connectionData.setClientToServerChallenge(aarq.getCallingAuthenticationValue().getCharstring().value);
 
         switch (authLevel) {
-        case LOW:
-            return processLowAuthentciationRequest(responseBuilder, aarq, securitySuite.getPassword());
+            case LOW:
+                // Support DSMR2.2: When using LLS1 in combination with encryption, then the system title should be added to the AARE
+                return processLowAuthentciationRequest(responseBuilder, aarq, securitySuite.getPassword(), securitySuite.getEncryptionMechanism() != EncryptionMechanism.NONE);
 
         case HLS5_GMAC:
             return processHls5GmacAuthentciationRequest(responseBuilder, aarq);
@@ -193,9 +194,17 @@ class InitiateMessageProcessor {
 
     }
 
+    // Support DSMR2.2: Added parameter addSystemTitle.
     private APdu processLowAuthentciationRequest(InitiateResponseBuilder responseBuilder, AARQApdu aarq,
-            byte[] authenticationKey) throws AssociatRequestException {
+        byte[] authenticationKey, boolean addSystemTitle) throws AssociatRequestException {
         byte[] clientAuthenticaionValue = aarq.getCallingAuthenticationValue().getCharstring().value;
+
+        if (addSystemTitle) {
+            // Support DSMR2.2: When using LLS1 in combination with encryption, then the system
+            // title should be added to the AARE and the client title should be remembered.
+            this.connectionData.setClientSystemTitle(aarq.getCallingAPTitle().getApTitleForm2().value);
+            responseBuilder.setSystemTitle(systemTitle());
+        }
 
         if (Arrays.equals(clientAuthenticaionValue, authenticationKey)) {
             this.connectionData.setAuthenticated();
